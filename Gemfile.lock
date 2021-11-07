@@ -11,7 +11,7 @@ GEM
     rake (0.9.2.2)
     rake-compiler (0.7.9)
       rake
-    redcarpet (1.17.2)
+    redcarpet (3.5.1)
     rocco (0.8.2)
       mustache
       redcarpet
