@@ -1,6 +1,6 @@
 source :rubygems
 
-gem 'rack', '~> 1.3.5'
+gem 'rack', '~> 1.6.13'
 gem 'rake-compiler' # For the http parser
 
 group :test do
