@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <title>configurator.rb</title>
+  <link rel="stylesheet" href="http://vast.github.io/rokko/assets/v0.6.0/docco.css" />
+         <link rel="stylesheet" href="http://yandex.st/highlightjs/7.5/styles/github.min.css" />
+  <script src="http://yandex.st/highlightjs/7.5/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<div id="container">
+  <div id="background"></div>
+  <div id="jump_to">
+    Jump To &hellip;
+    <div id="jump_wrapper">
+      <div id="jump_page">
+          <a class="source" href="../spyglass.html">spyglass.rb</a>
+          <a class="source" href="./configurator.html">configurator.rb</a>
+          <a class="source" href="./logging.html">logging.rb</a>
+          <a class="source" href="./lookout.html">lookout.rb</a>
+          <a class="source" href="./master.html">master.rb</a>
+          <a class="source" href="./server.html">server.rb</a>
+          <a class="source" href="./worker.html">worker.rb</a>
+      </div>
+    </div>
+  </div>
+  <table cellspacing="0" cellpadding="0">
+  <thead>
+    <tr>
+      <th class="docs"><h1>configurator.rb</h1></th>
+      <th class="code"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr id="section-1">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-1">&#182;</a>
+        </div>
+        <hr>
+
+<p>Excerpted from &quot;Working With Unix Processes&quot;,
+published by The Pragmatic Bookshelf.
+Copyrights apply to this code. It may not be used to create training material, 
+courses, books, articles, and the like. Contact us if you are in doubt.
+We make no guarantees that this code is fit for any purpose. </p>
+
+<h2>Visit http://www.pragmaticprogrammer.com/titles/jsunix for more book information.</h2>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>module Spyglass
+  class Configurator</code></pre>
+      </td>
+    </tr>
+    <tr id="section-2">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-2">&#182;</a>
+        </div>
+        <p>A hash of key =&gt; default</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>    OPTIONS = {
+      :port =&gt; 4222,
+      :host =&gt; &#39;0.0.0.0&#39;,
+      :workers =&gt; 2,
+      :timeout =&gt; 30,
+      :config_ru_path =&gt; &#39;config.ru&#39;,
+      :verbose =&gt; false,
+      :vverbose =&gt; false
+    }
+    
+    class &lt;&lt; self
+      OPTIONS.each do |key, default|</code></pre>
+      </td>
+    </tr>
+    <tr id="section-3">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-3">&#182;</a>
+        </div>
+        <p>attr_writer key</p>
+
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      
+        define_method(key) do |*args|
+          arg = args.shift
+          if arg
+            instance_variable_set(&quot;@#{key}&quot;, arg)
+          else
+            instance_variable_get(&quot;@#{key}&quot;) || default
+          end
+        end
+      end
+    end
+  end
+  
+  Config = Configurator
+end</code></pre>
+      </td>
+    </tr>
+  </tbody>
+  </table>
+</div>
+</body>
+</html>

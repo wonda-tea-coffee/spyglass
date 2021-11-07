@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <title>lookout.rb</title>
+  <link rel="stylesheet" href="http://vast.github.io/rokko/assets/v0.6.0/docco.css" />
+         <link rel="stylesheet" href="http://yandex.st/highlightjs/7.5/styles/github.min.css" />
+  <script src="http://yandex.st/highlightjs/7.5/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<div id="container">
+  <div id="background"></div>
+  <div id="jump_to">
+    Jump To &hellip;
+    <div id="jump_wrapper">
+      <div id="jump_page">
+          <a class="source" href="../spyglass.html">spyglass.rb</a>
+          <a class="source" href="./configurator.html">configurator.rb</a>
+          <a class="source" href="./logging.html">logging.rb</a>
+          <a class="source" href="./lookout.html">lookout.rb</a>
+          <a class="source" href="./master.html">master.rb</a>
+          <a class="source" href="./server.html">server.rb</a>
+          <a class="source" href="./worker.html">worker.rb</a>
+      </div>
+    </div>
+  </div>
+  <table cellspacing="0" cellpadding="0">
+  <thead>
+    <tr>
+      <th class="docs"><h1>lookout.rb</h1></th>
+      <th class="code"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr id="section-1">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-1">&#182;</a>
+        </div>
+        <hr>
+
+<p>Excerpted from &quot;Working With Unix Processes&quot;,
+published by The Pragmatic Bookshelf.
+Copyrights apply to this code. It may not be used to create training material, 
+courses, books, articles, and the like. Contact us if you are in doubt.
+We make no guarantees that this code is fit for any purpose. </p>
+
+<h2>Visit http://www.pragmaticprogrammer.com/titles/jsunix for more book information.</h2>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>module Spyglass
+  class Lookout
+    include Singleton, Logging
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-2">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-2">&#182;</a>
+        </div>
+        <p>This method is the main entry point for the Lookout class. It takes
+a socket object.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>    def start(socket)
+      trap_signals
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-3">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-3">&#182;</a>
+        </div>
+        <p>The Lookout doesn&#39;t know anything about the app itself, so there&#39;s
+no app related setup to do here.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      loop do</code></pre>
+      </td>
+    </tr>
+    <tr id="section-4">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-4">&#182;</a>
+        </div>
+        <p>Accepts a new connection on our socket. This class won&#39;t actually
+do anything interesting with this connection, it will pass it down
+to the <code>Master</code> class created below to do the actual request handling.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        conn = socket.accept
+        out &quot;Received incoming connection&quot;
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-5">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-5">&#182;</a>
+        </div>
+        <p>In this block the Lookout forks a new process and invokes a Master,
+passing along the socket it received and the connection it accepted
+above.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        @master_pid = fork do
+          master = Master.new(conn, socket)
+          master.start
+        end
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-6">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-6">&#182;</a>
+        </div>
+        <p>The Lookout can now close its handle on the client socket. This doesn&#39;t
+translate to the socket being closed on the clients end because the
+forked Master process also has a handle on the same socket. Since this
+handle is now cleaned up it&#39;s up to the Master process to ensure that
+its handle gets cleaned up.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        conn.close</code></pre>
+      </td>
+    </tr>
+    <tr id="section-7">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-7">&#182;</a>
+        </div>
+        <p>Now this process blocks until the Master process exits. The Master process
+will only exit once traffic is slow enough that it has reached its timeout
+without receiving any new connections.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        Process.waitpid(@master_pid)
+        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-8">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-8">&#182;</a>
+        </div>
+        <p>The interaction of fork(2)/waitpid(2) above deserve some explanation.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-9">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-9">&#182;</a>
+        </div>
+        <h3>Why fork(2)? Why not just spin up the Master?</h3>
+
+<p>The whole point of the Lookout process is to be very lean. The only resource
+that it initializes is the listening socket for the server. It doesn&#39;t load
+any of your application into memory, so its resource footprint is very small.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-10">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-10">&#182;</a>
+        </div>
+        <p>The reason that it does a fork(2) before invoking the Master is because once
+the Master times out we want the Lookout process to remain lean when accepting
+the next connection. </p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-11">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-11">&#182;</a>
+        </div>
+        <p>If it were to load the application code without forking 
+then there would be no (simple) way for it to later unload the application code.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-12">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-12">&#182;</a>
+        </div>
+        <p>By doing a fork(2), then waiting for the Master process to exit, that guarantees
+that all resources (notably memory usage) that were in use by the Master process
+will be reclaimed by the kernel. </p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-13">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-13">&#182;</a>
+        </div>
+        <h3>Who knows what your app will demand!</h3>
+
+<p>While handling requests your app may require lots of memory. Containing this in a
+child process, and exiting that process, is the easiest way to ensure that memory
+bloat isn&#39;t shared with our simple parent process.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-14">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-14">&#182;</a>
+        </div>
+        <p>This allows our Lookout process will to go back around
+the loop with nothing more than it started with, just a listening socket.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>        </code></pre>
+      </td>
+    </tr>
+    <tr id="section-15">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-15">&#182;</a>
+        </div>
+        <p>The fork(2)/waitpid(2) approach requires little code to implement, and pushes 
+responsibility down to the kernel to track resource usage and nicely clean up
+the Master process when it&#39;s finished.</p>
+
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      end
+    end
+
+    def trap_signals
+      [:INT, :QUIT].each do |sig|
+        trap(sig) { 
+          begin
+            Process.kill(sig, @master_pid) if @master_pid
+          rescue Errno::ESRCH
+          end
+          exit 
+        }
+      end
+    end
+  end
+end</code></pre>
+      </td>
+    </tr>
+  </tbody>
+  </table>
+</div>
+</body>
+</html>

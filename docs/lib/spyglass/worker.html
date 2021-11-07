@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <title>worker.rb</title>
+  <link rel="stylesheet" href="http://vast.github.io/rokko/assets/v0.6.0/docco.css" />
+         <link rel="stylesheet" href="http://yandex.st/highlightjs/7.5/styles/github.min.css" />
+  <script src="http://yandex.st/highlightjs/7.5/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<div id="container">
+  <div id="background"></div>
+  <div id="jump_to">
+    Jump To &hellip;
+    <div id="jump_wrapper">
+      <div id="jump_page">
+          <a class="source" href="../spyglass.html">spyglass.rb</a>
+          <a class="source" href="./configurator.html">configurator.rb</a>
+          <a class="source" href="./logging.html">logging.rb</a>
+          <a class="source" href="./lookout.html">lookout.rb</a>
+          <a class="source" href="./master.html">master.rb</a>
+          <a class="source" href="./server.html">server.rb</a>
+          <a class="source" href="./worker.html">worker.rb</a>
+      </div>
+    </div>
+  </div>
+  <table cellspacing="0" cellpadding="0">
+  <thead>
+    <tr>
+      <th class="docs"><h1>worker.rb</h1></th>
+      <th class="code"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr id="section-1">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-1">&#182;</a>
+        </div>
+        <hr>
+
+<p>Excerpted from &quot;Working With Unix Processes&quot;,
+published by The Pragmatic Bookshelf.
+Copyrights apply to this code. It may not be used to create training material, 
+courses, books, articles, and the like. Contact us if you are in doubt.
+We make no guarantees that this code is fit for any purpose. </p>
+
+<h2>Visit http://www.pragmaticprogrammer.com/titles/jsunix for more book information.</h2>
+
+<h1>Worker</h1>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>module Spyglass
+  class Worker
+    include Logging
+
+    def initialize(socket, app, writable_pipe, connection = nil)
+      @socket, @app, @writable_pipe = socket, app, writable_pipe
+      @parser = Spyglass::HttpParser.new
+
+      handle_connection(connection) if connection
+    end
+
+    def start
+      trap_signals
+
+      loop do
+        handle_connection @socket.accept
+      end
+    end
+
+    def handle_connection(conn)
+      verbose &quot;Received connection&quot;</code></pre>
+      </td>
+    </tr>
+    <tr id="section-2">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-2">&#182;</a>
+        </div>
+        <p>This notifies our Master that we have received a connection, expiring
+it&#39;s <code>IO.select</code> and preventing it from timing out.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      @writable_pipe.write_nonblock(&#39;.&#39;)
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-3">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-3">&#182;</a>
+        </div>
+        <p>This clears any state that the http parser has lying around
+from the last connection that was handled.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      @parser.reset
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-4">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-4">&#182;</a>
+        </div>
+        <p>The Rack spec requires that &#39;rack.input&#39; be encoded as ASCII-8BIT.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      empty_body = &#39;&#39;
+      empty_body.encode!(Encoding::ASCII_8BIT) if empty_body.respond_to?(:encode!)
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-5">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-5">&#182;</a>
+        </div>
+        <p>The Rack spec requires that the env contain certain keys before being
+passed to the app. These are the keys that aren&#39;t provided by each
+incoming request, server-specific stuff.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      env = { 
+        &#39;rack.input&#39; =&gt; StringIO.new(empty_body),
+        &#39;rack.multithread&#39; =&gt; false,
+        &#39;rack.multiprocess&#39; =&gt; true,
+        &#39;rack.run_once&#39; =&gt; false,
+        &#39;rack.errors&#39; =&gt; STDERR,
+        &#39;rack.version&#39; =&gt; [1, 0]
+      }
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-6">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-6">&#182;</a>
+        </div>
+        <p>This reads data in from the client connection. We&#39;ll read up to 
+10000 bytes at the moment.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      data = conn.readpartial(10000)</code></pre>
+      </td>
+    </tr>
+    <tr id="section-7">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-7">&#182;</a>
+        </div>
+        <p>Here we pass the data and the env into the http parser. It parses
+the raw http request data and updates the env with all of the data
+it can withdraw.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      @parser.execute(env, data, 0)
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-8">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-8">&#182;</a>
+        </div>
+        <p>Call the Rack app, goes all the way down the rabbit hole and back again.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      status, headers, body = @app.call(env)
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-9">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-9">&#182;</a>
+        </div>
+        <p>These are the default headers we always include in a response. We
+only speak HTTP 1.1 and we always close the client connection. At 
+the monment keepalive is not supported.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      head = &quot;HTTP/1.1 #{status}\r\n&quot; \
+      &quot;Date: #{Time.now.httpdate}\r\n&quot; \
+      &quot;Status: #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n&quot; \
+      &quot;Connection: close\r\n&quot;
+
+      headers.each do |k,v|
+        head &lt;&lt; &quot;#{k}: #{v}\r\n&quot;
+      end
+      conn.write &quot;#{head}\r\n&quot;
+
+      body.each { |chunk| conn.write chunk }
+      body.close if body.respond_to?(:close)</code></pre>
+      </td>
+    </tr>
+    <tr id="section-10">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-10">&#182;</a>
+        </div>
+        <p>Since keepalive is not supported we can close the client connection
+immediately after writing the body.</p>
+
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      conn.close
+
+      verbose &quot;Closed connection&quot;
+    end
+
+    def trap_signals
+      trap(:QUIT) do
+        out &quot;Received QUIT&quot;
+        exit
+      end
+    end
+  end
+end</code></pre>
+      </td>
+    </tr>
+  </tbody>
+  </table>
+</div>
+</body>
+</html>

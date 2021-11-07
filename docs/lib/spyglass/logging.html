@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <title>logging.rb</title>
+  <link rel="stylesheet" href="http://vast.github.io/rokko/assets/v0.6.0/docco.css" />
+         <link rel="stylesheet" href="http://yandex.st/highlightjs/7.5/styles/github.min.css" />
+  <script src="http://yandex.st/highlightjs/7.5/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<div id="container">
+  <div id="background"></div>
+  <div id="jump_to">
+    Jump To &hellip;
+    <div id="jump_wrapper">
+      <div id="jump_page">
+          <a class="source" href="../spyglass.html">spyglass.rb</a>
+          <a class="source" href="./configurator.html">configurator.rb</a>
+          <a class="source" href="./logging.html">logging.rb</a>
+          <a class="source" href="./lookout.html">lookout.rb</a>
+          <a class="source" href="./master.html">master.rb</a>
+          <a class="source" href="./server.html">server.rb</a>
+          <a class="source" href="./worker.html">worker.rb</a>
+      </div>
+    </div>
+  </div>
+  <table cellspacing="0" cellpadding="0">
+  <thead>
+    <tr>
+      <th class="docs"><h1>logging.rb</h1></th>
+      <th class="code"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr id="section-1">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-1">&#182;</a>
+        </div>
+        <hr>
+
+<p>Excerpted from &quot;Working With Unix Processes&quot;,
+published by The Pragmatic Bookshelf.
+Copyrights apply to this code. It may not be used to create training material, 
+courses, books, articles, and the like. Contact us if you are in doubt.
+We make no guarantees that this code is fit for any purpose. </p>
+
+<h2>Visit http://www.pragmaticprogrammer.com/titles/jsunix for more book information.</h2>
+
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>module Spyglass
+  module Logging
+    def out(message)
+      $stdout.puts preamble + message
+    end
+
+    def err(message)
+      $stderr.puts preamble + message
+    end
+
+    def verbose(message)
+      return unless Config.verbose
+      out(message)
+    end
+
+    def vverbose(message)
+      return unless Config.vverbose
+      out(message)
+    end
+
+    def preamble
+      &quot;[#{Process.pid}] [#{self.class.name}] &quot;
+    end
+  end
+end</code></pre>
+      </td>
+    </tr>
+  </tbody>
+  </table>
+</div>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <title>master.rb</title>
+  <link rel="stylesheet" href="http://vast.github.io/rokko/assets/v0.6.0/docco.css" />
+         <link rel="stylesheet" href="http://yandex.st/highlightjs/7.5/styles/github.min.css" />
+  <script src="http://yandex.st/highlightjs/7.5/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<div id="container">
+  <div id="background"></div>
+  <div id="jump_to">
+    Jump To &hellip;
+    <div id="jump_wrapper">
+      <div id="jump_page">
+          <a class="source" href="../spyglass.html">spyglass.rb</a>
+          <a class="source" href="./configurator.html">configurator.rb</a>
+          <a class="source" href="./logging.html">logging.rb</a>
+          <a class="source" href="./lookout.html">lookout.rb</a>
+          <a class="source" href="./master.html">master.rb</a>
+          <a class="source" href="./server.html">server.rb</a>
+          <a class="source" href="./worker.html">worker.rb</a>
+      </div>
+    </div>
+  </div>
+  <table cellspacing="0" cellpadding="0">
+  <thead>
+    <tr>
+      <th class="docs"><h1>master.rb</h1></th>
+      <th class="code"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr id="section-1">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-1">&#182;</a>
+        </div>
+        <hr>
+
+<p>Excerpted from &quot;Working With Unix Processes&quot;,
+published by The Pragmatic Bookshelf.
+Copyrights apply to this code. It may not be used to create training material, 
+courses, books, articles, and the like. Contact us if you are in doubt.
+We make no guarantees that this code is fit for any purpose. </p>
+
+<h2>Visit http://www.pragmaticprogrammer.com/titles/jsunix for more book information.</h2>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>module Spyglass
+  class Master
+    include Logging
+
+    def initialize(connection, socket)
+      @connection, @socket = connection, socket
+      @worker_pids = []
+      </code></pre>
+      </td>
+    </tr>
+    <tr id="section-2">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-2">&#182;</a>
+        </div>
+        <p>The Master shares this pipe with each of its worker processes. It
+passes the writable end down to each spawned worker while it listens
+on the readable end. Each worker will write to the pipe each time
+it accepts a new connection. If The Master doesn&#39;t get anything on
+the pipe before <code>Config.timeout</code> elapses then it kills its workers
+and exits. </p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      @readable_pipe, @writable_pipe = IO.pipe
+    end
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-3">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-3">&#182;</a>
+        </div>
+        <p>This method starts the Master. It enters an infinite loop where it creates
+processes to handle web requests and ensures that they stay active. It takes
+a connection as an argument from the Lookout instance. A Master will only 
+be started when a connection is received by the Lookout.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>    def start
+      trap_signals
+
+      load_app
+      out &quot;Loaded the app&quot;
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-4">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-4">&#182;</a>
+        </div>
+        <p>The first worker we spawn has to handle the connection that was already
+passed to us.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      spawn_worker(@connection)</code></pre>
+      </td>
+    </tr>
+    <tr id="section-5">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-5">&#182;</a>
+        </div>
+        <p>The Master can now close its handle on the client socket since the
+forked worker also got a handle on the same socket. Since this one
+is now closed it&#39;s up to the Worker process to close its handle when
+it&#39;s done. At that point the client connection will perceive that
+it&#39;s been closed on their end.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      @connection.close
+</code></pre>
+      </td>
+    </tr>
+    <tr id="section-6">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-6">&#182;</a>
+        </div>
+        <p>We spawn the rest of the workers.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      (Config.workers - 1).times { spawn_worker }
+      out &quot;Spawned #{Config.workers} workers. Babysitting now...&quot;
+
+      loop do
+        if timed_out?(IO.select([@readable_pipe], nil, nil, Config.timeout))
+          out &quot;Timed out after #{Config.timeout} s. Exiting.&quot;
+          
+          kill_workers(:QUIT)          
+          exit 
+        else</code></pre>
+      </td>
+    </tr>
+    <tr id="section-7">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-7">&#182;</a>
+        </div>
+        <p>Clear the data on the pipe so it doesn&#39;t appear to be readable
+next time around the loop.</p>
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>          @readable_pipe.read_nonblock 1
+        end
+      end
+    end
+
+    def timed_out?(select_result)
+      !select_result
+    end
+
+    def spawn_worker(connection = nil)
+      @worker_pids &lt;&lt; fork { Worker.new(@socket, @app, @writable_pipe, connection).start }
+    end
+
+    def trap_signals</code></pre>
+      </td>
+    </tr>
+    <tr id="section-8">
+      <td class="docs">
+        <div class="pilwrap">
+          <a class="pilcrow" href="#section-8">&#182;</a>
+        </div>
+        <p>The QUIT signal triggers a graceful shutdown. The master shuts down
+immediately and lets each worker finish the request they are currently
+processing.</p>
+
+      </td>
+      <td class="code">
+        <pre class="ruby"><code>      trap(:QUIT) do
+        verbose &quot;Received QUIT&quot;
+
+        kill_workers(:QUIT)
+        exit
+      end
+
+      trap(:CHLD) do
+        dead_worker = Process.wait
+        @worker_pids.delete(dead_worker)
+
+        @worker_pids.each do |wpid|
+          begin 
+            dead_worker = Process.waitpid(wpid, Process::WNOHANG)
+            @worker_pids.delete(dead_worker)
+          rescue Errno::ECHILD
+          end
+        end
+
+        spawn_worker
+      end
+    end
+    
+    def kill_workers(sig)
+      @worker_pids.each do |wpid|
+        Process.kill(sig, wpid)
+      end
+    end
+
+    def load_app
+      @app, options = Rack::Builder.parse_file(Config.config_ru_path)
+    end
+  end
+end</code></pre>
+      </td>
+    </tr>
+  </tbody>
+  </table>
+</div>
+</body>
+</html>
